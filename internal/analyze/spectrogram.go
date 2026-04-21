@@ -6,8 +6,10 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"io"
 	"math"
 
+	"github.com/hajimehoshi/go-mp3"
 	"github.com/madelynnblue/go-dsp/fft"
 )
 
@@ -60,4 +62,12 @@ func GenerateSpectrogram(pcmData []byte) (string, error) {
 	var buf bytes.Buffer
 	png.Encode(&buf, img)
 	return base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+}
+
+func MP3ToPCM(mp3Data []byte) ([]byte, error) {
+	decoder, err := mp3.NewDecoder(bytes.NewReader(mp3Data))
+	if err != nil {
+		return nil, err
+	}
+	return io.ReadAll(decoder)
 }

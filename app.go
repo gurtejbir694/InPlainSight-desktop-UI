@@ -206,22 +206,40 @@ func (a *App) GetForensicFilters(path string) ([]FilterResult, error) {
 }
 
 // GetAudioSpectrogram generates a frequency heatmap for WAV files
+// GetAudioSpectrogram generates a frequency heatmap for audio files (WAV or MP3)
 func (a *App) GetAudioSpectrogram(path string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
 	}
 
-	// Only process if it's a valid WAV (at least header size)
-	if len(data) > 44 {
-		// We use our existing logic from the analyze package
-		specBase64, err := analyze.GenerateSpectrogram(data[44:])
-		if err != nil {
-			return "", err
+	ext := strings.ToLower(filepath.Ext(path))
+	var pcmData []byte
+
+	// 1. Handle different audio formats to get raw PCM
+	if ext == ".wav" {
+		if len(data) > 44 {
+			// Skip the 44-byte WAV header for raw PCM samples
+			pcmData = data[44:]
+		} else {
+			return "", fmt.Errorf("invalid WAV file")
 		}
-		// Return as a Data URI for the <img> tag
-		return "data:image/png;base64," + specBase64, nil
+	} else if ext == ".mp3" {
+		// Decode compressed MP3 into raw PCM using our new analyzer logic
+		pcmData, err = analyze.MP3ToPCM(data)
+		if err != nil {
+			return "", fmt.Errorf("failed to decode MP3: %v", err)
+		}
+	} else {
+		return "", fmt.Errorf("unsupported audio format for spectrogram")
 	}
 
-	return "", fmt.Errorf("file too small for audio analysis")
+	// 2. Generate the visual spectrogram from the raw PCM
+	specBase64, err := analyze.GenerateSpectrogram(pcmData)
+	if err != nil {
+		return "", err
+	}
+
+	// 3. Return as a Data URI for the Svelte <img> tag
+	return "data:image/png;base64," + specBase64, nil
 }
