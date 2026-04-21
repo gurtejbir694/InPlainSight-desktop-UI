@@ -1,8 +1,10 @@
 module inplainsight-desktop
 
-go 1.23.0
+go 1.25.5
 
 require (
+	github.com/bogem/id3v2/v2 v2.1.4
+	github.com/madelynnblue/go-dsp v1.0.0
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
 	github.com/wailsapp/wails/v2 v2.12.0
 )

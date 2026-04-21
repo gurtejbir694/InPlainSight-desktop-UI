@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function AnalyzeFile(arg1:string):Promise<any>;
 
+export function GetAudioSpectrogram(arg1:string):Promise<string>;
+
 export function GetBitPlaneImages(arg1:string):Promise<Array<string>>;
 
 export function GetForensicFilters(arg1:string):Promise<Array<main.FilterResult>>;

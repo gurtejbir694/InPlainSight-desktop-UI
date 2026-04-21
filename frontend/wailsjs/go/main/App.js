@@ -6,6 +6,10 @@ export function AnalyzeFile(arg1) {
   return window['go']['main']['App']['AnalyzeFile'](arg1);
 }
 
+export function GetAudioSpectrogram(arg1) {
+  return window['go']['main']['App']['GetAudioSpectrogram'](arg1);
+}
+
 export function GetBitPlaneImages(arg1) {
   return window['go']['main']['App']['GetBitPlaneImages'](arg1);
 }

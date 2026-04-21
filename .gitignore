@@ -1,7 +1,4 @@
 build/bin
 node_modules
 frontend/dist
-test_overlay.png
-test_jpeg_repaired.jpeg
-test_overlay_repaired.png
-test_jpeg.jpeg
+samples/

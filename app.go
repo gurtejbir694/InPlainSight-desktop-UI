@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"fmt"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"image"
 	"image/color"
 	_ "image/jpeg"
@@ -14,8 +16,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type App struct {
@@ -34,12 +34,16 @@ func NewApp() *App {
 			Parsers: []parser.FileParser{
 				&parser.PNGParser{},
 				&parser.JPEGParser{},
+				&parser.MP3Parser{},
+				&parser.WAVParser{},
 			},
 			Analyzers: []analyze.StegoAnalyzer{
 				&analyze.LSBAnalyzer{},
 				&analyze.EntropyAnalyzer{},
 				&analyze.HeaderAnalyzer{},
 				&analyze.ExifAnalyzer{},
+				&analyze.AudioLSBAnalyzer{},
+				&analyze.ID3Analyzer{},
 			},
 		},
 	}
@@ -51,9 +55,11 @@ func (a *App) startup(ctx context.Context) {
 
 func (a *App) SelectFile() (string, error) {
 	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "Select Image for Analysis",
+		Title: "Select Image/Audio file for Analysis",
 		Filters: []runtime.FileFilter{
+			{DisplayName: "All file supported", Pattern: "*.png;*.jpg;*.jpeg;*.mp3;*.wav"},
 			{DisplayName: "Images (*.png;*.jpg)", Pattern: "*.png;*.jpg;*.jpeg"},
+			{DisplayName: "Audio (*.mp3;*.wav)", Pattern: "*.mp3;*.wav"},
 		},
 	})
 }
@@ -121,19 +127,24 @@ func (a *App) GetBitPlaneImages(filepath string) ([]string, error) {
 
 // RepairAndSave takes a file path, repairs the file, and saves it with a _repaired suffix.
 func (a *App) RepairAndSave(path string) (string, error) {
-	// 1. Read the file
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
 	}
 
-	// 2. Wrap it in a ParsedFile for the engine
-	ext := filepath.Ext(path)
+	ext := strings.ToLower(filepath.Ext(path))
 	fileType := "Unknown"
-	if ext == ".png" {
+
+	// Map extensions to internal types for the Repair logic
+	switch ext {
+	case ".png":
 		fileType = "PNG Image"
-	} else if ext == ".jpg" || ext == ".jpeg" {
+	case ".jpg", ".jpeg":
 		fileType = "JPEG Image"
+	case ".mp3":
+		fileType = "MP3 Audio"
+	case ".wav":
+		fileType = "WAV Audio"
 	}
 
 	pf := &parser.ParsedFile{
@@ -141,13 +152,11 @@ func (a *App) RepairAndSave(path string) (string, error) {
 		RawData: data,
 	}
 
-	// 3. Run the repair logic
 	repaired, err := a.engine.RepairFile(pf)
 	if err != nil {
 		return "", err
 	}
 
-	// 4. Save the new file
 	newPath := strings.TrimSuffix(path, ext) + "_repaired" + ext
 	err = os.WriteFile(newPath, repaired, 0644)
 	if err != nil {
@@ -194,4 +203,25 @@ func (a *App) GetForensicFilters(path string) ([]FilterResult, error) {
 	results = append(results, FilterResult{Name: "Contrast Stretch (Histogram Equalization)", Data: strBase64})
 
 	return results, nil
+}
+
+// GetAudioSpectrogram generates a frequency heatmap for WAV files
+func (a *App) GetAudioSpectrogram(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+
+	// Only process if it's a valid WAV (at least header size)
+	if len(data) > 44 {
+		// We use our existing logic from the analyze package
+		specBase64, err := analyze.GenerateSpectrogram(data[44:])
+		if err != nil {
+			return "", err
+		}
+		// Return as a Data URI for the <img> tag
+		return "data:image/png;base64," + specBase64, nil
+	}
+
+	return "", fmt.Errorf("file too small for audio analysis")
 }
